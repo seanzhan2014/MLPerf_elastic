@@ -4,7 +4,7 @@ This project provides a Python script for analyzing log files, extracting specif
 
 ## Features
 
-- Searches for specific keywords in log files (e.g., `nodelist`, `jobID`, `run_start`, `run_stop`).
+- Searches for specific keywords in slurm output files (e.g., `nodelist`, `jobID`, `run_start`, `run_stop`).
 - Extracts and aggregates relevant data from log files.
 - Stores the extracted data in Elasticsearch for analysis and visualization.
 
