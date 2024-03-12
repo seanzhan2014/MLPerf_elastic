@@ -29,6 +29,7 @@ def process_file(file_path, test_type):
         'nodelist': None,
         'jobID': None
     }
+
     key_events = {
             'run_start':'time_ms',
             'run_stop':'time_ms', 
@@ -36,8 +37,11 @@ def process_file(file_path, test_type):
             'local_batch_size':'value',
             'epoch_count':'value',
             'submission_benchmark':'value',
-            'init_start':'time_ms']
-
+            'init_start':'time_ms',
+            'init_stop':'time_ms',
+            'train_samples':'value',
+            'eval_samples':'value'
+            }
     run_events = []
 
     with open(file_path, 'r') as file:
@@ -57,8 +61,9 @@ def process_file(file_path, test_type):
         print(json.dumps(output))
 
 def main(directory_path, test_type):
-    for filename in os.listdir(directory_path):
-        file_path = os.path.join(directory_path, filename)
+    # for filename in os.listdir(directory_path):
+        # file_path = os.path.join(directory_path, filename)
+        file_path = "/home/ubuntu/sample_logs/smc_run/logs/ssd/ssd_run_logs/240309224319669447555_5.log"
         if os.path.isdir(file_path):
             continue
 
