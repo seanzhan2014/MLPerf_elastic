@@ -3,79 +3,90 @@ import re
 import json
 import argparse
 
+
+KEY_EVENTS = {
+    'run_start':'time_ms',
+    'run_stop':'time_ms', 
+    'global_batch_size':'value', 
+    'local_batch_size':'value',
+    'epoch_count':'value',
+    'submission_benchmark':'value',
+    'init_start':'time_ms',
+    'init_stop':'time_ms',
+    'train_samples':'value',
+    'eval_samples':'value'
+}
+
+PATTERNS = {
+    #example line:
+    #+ NODELIST=HMYKQ04
+    #'nodelist': re.compile(r'^\+ NODELIST=([^\$]+)$'),
+    #example line:
+    #MASTER_PORT 29500, WORLD_SIZE 8, MLPERF_SLURM_FIRSTNODE 2NYKQ04, SLURM_JOB_ID 779,
+    #'jobID': re.compile(r'SLURM_JOB_ID (\d+)'),
+    #example line:
+    #:::DLPAL /mnt/weka/MLPerf/smc_run/ssd.sqsh 778 1 2NYKQ04 'unknown' SMC_H100
+    'dlpal': re.compile(r'^:::DLPAL (\S*) (\S*) (\S*) (\S*) (\S*) (\S*)'),
+    #example line:
+    #:::MLLOG {"namespace": "", "time_ms": 1710009491383, "event_type": "POINT_IN_TIME", 
+    'mllog': re.compile(r'^:::MLLOG (\{.+\})')
+}
+
 def parse_mllog(mllog_line):
     try:
-        mmlog_info = json.loads(mllog_line)
+        mllog_raw_info = json.loads(mllog_line)
     except json.JSONDecodeError as e:
             return None
-    else:
-        return mmlog_info
+    if mllog_raw_info['key'] in  KEY_EVENTS:
+        return {mllog_raw_info['key']: mllog_raw_info[KEY_EVENTS[mllog_raw_info['key']]]}
 
-def process_file(file_path, test_type):
-    patterns = {
-        #example line:
-        #+ NODELIST=HMYKQ04
-        'nodelist': r'^\+ NODELIST=([^\$]+)$',
-        #example line:
-        #MASTER_PORT 29500, WORLD_SIZE 8, MLPERF_SLURM_FIRSTNODE 2NYKQ04, SLURM_JOB_ID 779,
-        'jobID': r'SLURM_JOB_ID (\d+)'
-        #example line:
-        #:::MLLOG {"namespace": "", "time_ms": 1710009491383, "event_type": "POINT_IN_TIME", 
-        'mllog': r'^:::MLLOG (\{.+\})'
-    }
+def process_file(file_path):
 
-    metadata = {
-        'test_type': test_type,
-        'nodelist': None,
-        'jobID': None
-    }
-
-    key_events = {
-            'run_start':'time_ms',
-            'run_stop':'time_ms', 
-            'global_batch_size':'value', 
-            'local_batch_size':'value',
-            'epoch_count':'value',
-            'submission_benchmark':'value',
-            'init_start':'time_ms',
-            'init_stop':'time_ms',
-            'train_samples':'value',
-            'eval_samples':'value'
-            }
-    run_events = []
+    run_events = {}
+    #= metadata.copy()
 
     with open(file_path, 'r') as file:
+        metadata = {
+            'container':None,
+            'jobID': None,
+            'nodenum': None,
+            'nodelist': None,
+            'machine_type': None,
+            'source_log': None
+        }
         for line in file:
-            if not metadata['nodelist'] and patterns['nodelist'].match(line):
-                metadata['nodelist'] = patterns['nodelist'].match(line).group(1)
-            elif not metadata['jobID'] and patterns['jobID'].match(line):
-                metadata['jobID'] = patterns['jobID'].match(line).group(1)
-            elif patterns['mllog'].match(line):
-                parse_mllog(patterns['mllog'].match(line).group(1))
+            mllog_info = None
+            m = PATTERNS['dlpal'].match(line)
+            if m:
+                metadata['container'] = m.group(1)
+                metadata['jobID'] = m.group(2)
+                metadata['nodenum'] = m.group(3)
+                metadata['nodelist'] = m.group(4)
+                metadata['machine_type'] = m.group(6)
+            m =  PATTERNS['mllog'].match(line)
+            if m:
+                mllog_line = m.group(1)
+                mllog_info = parse_mllog(mllog_line)
             if mllog_info:
-                run_events.append(mllog_info)
+                run_events.update(mllog_info)
+    if run_events:
+        run_events.update(metadata)
+        run_events['source_log']=file_path
+        print(json.dumps(run_events))
 
-    for event in run_events:
-        output = metadata.copy()
-        output.update(event)
-        print(json.dumps(output))
-
-def main(directory_path, test_type):
-    # for filename in os.listdir(directory_path):
-        # file_path = os.path.join(directory_path, filename)
-        file_path = "/home/ubuntu/sample_logs/smc_run/logs/ssd/ssd_run_logs/240309224319669447555_5.log"
+def main(directory_path):
+    for filename in os.listdir(directory_path):
+        file_path = os.path.join(directory_path, filename)
+        #file_path = "/home/ubuntu/sample_logs/smc_run/logs/ssd/ssd_run_logs/240309224319669447555_5.log"
         if os.path.isdir(file_path):
             continue
-
-        print(f"Processing file: {filename}")
-        process_file(file_path, test_type)
+        process_file(file_path)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process log files.", add_help=False)
     parser.add_argument("-d", "--directory", required=True, type=str, help="Directory containing log files.")
-    parser.add_argument("-t", "--test_type", required=True, type=str, help="Type of test.")
     
     args = parser.parse_args()
     
-    main(args.directory, args.test_type)
+    main(args.directory)
 
