@@ -5,7 +5,7 @@ import argparse
 import socket
 import time
 
-LOGSTASH_HOST = '127.0.0.1' 
+LOGSTASH_HOST = '10.250.250.11' 
 LOGSTASH_PORT = 5044 
 
 
@@ -77,11 +77,19 @@ def process_file(file_path):
     if run_events:
         run_events.update(metadata)
         run_events['source_log']=file_path
+        run_events['run_time'] = 0
+        if 'run_start' in run_events.keys() and 'run_stop' in run_events.keys():
+            if run_events['run_start'] is None or run_events['run_stop'] is None :
+                run_events['run_time'] = 0
+            else:
+                run_events['run_time'] = (int(run_events['run_stop']) - int(run_events['run_start']))/1000
+        else:
+            run_events['run_time'] = 0
         return json.dumps(run_events)
 
 def main(directory_path):
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect((LOGSTASH_HOST, LOGSTASH_PORT))
+#    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+#    sock.connect((LOGSTASH_HOST, LOGSTASH_PORT))
     for filename in os.listdir(directory_path):
         file_path = os.path.join(directory_path, filename)
         #file_path = "/home/ubuntu/sample_logs/smc_run/logs/ssd/ssd_run_logs/240309224319669447555_5.log"
@@ -90,11 +98,11 @@ def main(directory_path):
         json_data = process_file(file_path)
         if json_data:
             print(json_data)
-            json_data += "\n"
-            sock.sendall(json_data.encode('utf-8'))
+#            json_data += "\n"
+#            sock.sendall(json_data.encode('utf-8'))
 
-    sock.shutdown(socket.SHUT_WR)
-    sock.close()
+#    sock.shutdown(socket.SHUT_WR)
+#    sock.close()
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process log files.", add_help=False)
     parser.add_argument("-d", "--directory", required=True, type=str, help="Directory containing log files.")
