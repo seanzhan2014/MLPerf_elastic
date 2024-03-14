@@ -103,7 +103,6 @@ def main(directories):
                 continue
             if file_path in processed_logs:
                 continue
-            print(filename)
             json_data = process_file(file_path)
             if json_data:
                 print(json_data)
