@@ -8,6 +8,7 @@ import time
 LOGSTASH_HOST = '10.250.250.11' 
 LOGSTASH_PORT = 5044 
 
+MLPARSER_REC = "./mllog-parser.rec"
 
 KEY_EVENTS = {
     'run_start':'time_ms',
@@ -24,12 +25,6 @@ KEY_EVENTS = {
 
 PATTERNS = {
     #example line:
-    #+ NODELIST=HMYKQ04
-    #'nodelist': re.compile(r'^\+ NODELIST=([^\$]+)$'),
-    #example line:
-    #MASTER_PORT 29500, WORLD_SIZE 8, MLPERF_SLURM_FIRSTNODE 2NYKQ04, SLURM_JOB_ID 779,
-    #'jobID': re.compile(r'SLURM_JOB_ID (\d+)'),
-    #example line:
     #:::DLPAL /mnt/weka/MLPerf/smc_run/ssd.sqsh 778 1 2NYKQ04 'unknown' SMC_H100
     'dlpal': re.compile(r'^:::DLPAL (\S*) (\S*) (\S*) (\S*) (\S*) (\S*)'),
     #example line:
@@ -43,12 +38,14 @@ def parse_mllog(mllog_line):
     except json.JSONDecodeError as e:
             return None
     if mllog_raw_info['key'] in  KEY_EVENTS:
+        #special case for mllog contains run_stop: if not success, then ignore
+        if mllog_raw_info['key'] == "run_stop":
+            if mllog_raw_info['metadata'] and  mllog_raw_info['metadata']['status']!= "success": 
+                return None
         return {mllog_raw_info['key']: mllog_raw_info[KEY_EVENTS[mllog_raw_info['key']]]}
 
 def process_file(file_path):
-
     run_events = {}
-    #= metadata.copy()
 
     with open(file_path, 'r') as file:
         metadata = {
@@ -78,29 +75,36 @@ def process_file(file_path):
         run_events.update(metadata)
         run_events['source_log']=file_path
         run_events['run_time'] = 0
-        if 'run_start' in run_events.keys() and 'run_stop' in run_events.keys():
-            if run_events['run_start'] is None or run_events['run_stop'] is None :
-                run_events['run_time'] = 0
-            else:
-                run_events['run_time'] = (int(run_events['run_stop']) - int(run_events['run_start']))/1000
-        else:
-            run_events['run_time'] = 0
+        if not 'run_start' in run_events.keys() or not 'run_stop' in run_events.keys():
+            return None
+        if run_events['run_start'] is None or run_events['run_stop'] is None :
+            return None
+        run_events['run_time'] = (int(run_events['run_stop']) - int(run_events['run_start']))/1000
         return json.dumps(run_events)
 
 def main(directory_path):
+    processed_logs = []
+    if os.path.exists(MLPARSER_REC):
+        with open(MLPARSER_REC, 'r') as rec_file:
+            for line in rec_file:
+                log_dict = json.loads(line)
+                if 'source_log' in log_dict:
+                    processed_logs.append(log_dict['source_log'])
 #    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 #    sock.connect((LOGSTASH_HOST, LOGSTASH_PORT))
+    rec_file = open(MLPARSER_REC, 'a')
     for filename in os.listdir(directory_path):
         file_path = os.path.join(directory_path, filename)
-        #file_path = "/home/ubuntu/sample_logs/smc_run/logs/ssd/ssd_run_logs/240309224319669447555_5.log"
         if os.path.isdir(file_path):
+            continue
+        if file_path in processed_logs:
             continue
         json_data = process_file(file_path)
         if json_data:
-            print(json_data)
-#            json_data += "\n"
+            json_data += "\n"
+            rec_file.write(json_data)
 #            sock.sendall(json_data.encode('utf-8'))
-
+    rec_file.close()
 #    sock.shutdown(socket.SHUT_WR)
 #    sock.close()
 if __name__ == "__main__":
