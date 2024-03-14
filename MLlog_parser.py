@@ -29,7 +29,7 @@ PATTERNS = {
     'dlpal': re.compile(r'^:::DLPAL (\S*) (\S*) (\S*) (\S*) (\S*) (\S*)'),
     #example line:
     #:::MLLOG {"namespace": "", "time_ms": 1710009491383, "event_type": "POINT_IN_TIME", 
-    'mllog': re.compile(r'^:::MLLOG (\{.+\})')
+    'mllog': re.compile(r'.*:::MLLOG (\{.+\})')
 }
 
 def parse_mllog(mllog_line):
@@ -82,7 +82,7 @@ def process_file(file_path):
         run_events['run_time'] = (int(run_events['run_stop']) - int(run_events['run_start']))/1000
         return json.dumps(run_events)
 
-def main(directory_path):
+def main(directories):
     processed_logs = []
     if os.path.exists(MLPARSER_REC):
         with open(MLPARSER_REC, 'r') as rec_file:
@@ -93,25 +93,31 @@ def main(directory_path):
 #    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 #    sock.connect((LOGSTASH_HOST, LOGSTASH_PORT))
     rec_file = open(MLPARSER_REC, 'a')
-    for filename in os.listdir(directory_path):
-        file_path = os.path.join(directory_path, filename)
-        if os.path.isdir(file_path):
-            continue
-        if file_path in processed_logs:
-            continue
-        json_data = process_file(file_path)
-        if json_data:
-            json_data += "\n"
-            rec_file.write(json_data)
+    directory_list = directories.split(',')
+    for directory_path in directory_list:
+        for filename in os.listdir(directory_path):
+            if not filename.endswith(".log"):
+                continue
+            file_path = os.path.join(directory_path, filename)
+            if os.path.isdir(file_path):
+                continue
+            if file_path in processed_logs:
+                continue
+            print(filename)
+            json_data = process_file(file_path)
+            if json_data:
+                print(json_data)
+                json_data += "\n"
+                rec_file.write(json_data)
 #            sock.sendall(json_data.encode('utf-8'))
     rec_file.close()
 #    sock.shutdown(socket.SHUT_WR)
 #    sock.close()
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process log files.", add_help=False)
-    parser.add_argument("-d", "--directory", required=True, type=str, help="Directory containing log files.")
+    parser.add_argument("-d", "--directories", required=True, type=str, help="Directory list of MLPerf log files. Multiple directories have to be seperate by comma.")
     
     args = parser.parse_args()
     
-    main(args.directory)
+    main(args.directories)
 
