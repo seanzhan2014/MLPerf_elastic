@@ -90,8 +90,8 @@ def main(directories):
                 log_dict = json.loads(line)
                 if 'source_log' in log_dict:
                     processed_logs.append(log_dict['source_log'])
-#    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-#    sock.connect((LOGSTASH_HOST, LOGSTASH_PORT))
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect((LOGSTASH_HOST, LOGSTASH_PORT))
     rec_file = open(MLPARSER_REC, 'a')
     directory_list = directories.split(',')
     for directory_path in directory_list:
@@ -108,10 +108,10 @@ def main(directories):
                 print(json_data)
                 json_data += "\n"
                 rec_file.write(json_data)
-#            sock.sendall(json_data.encode('utf-8'))
+                sock.sendall(json_data.encode('utf-8'))
     rec_file.close()
-#    sock.shutdown(socket.SHUT_WR)
-#    sock.close()
+    sock.shutdown(socket.SHUT_WR)
+    sock.close()
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process log files.", add_help=False)
     parser.add_argument("-d", "--directories", required=True, type=str, help="Directory list of MLPerf log files. Multiple directories have to be seperate by comma.")
