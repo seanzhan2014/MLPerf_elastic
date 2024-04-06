@@ -47,7 +47,7 @@ def parse_mllog(mllog_line):
 def process_file(file_path):
     run_events = {}
 
-    with open(file_path, 'r') as file:
+    with open(file_path, 'r', encoding='utf-8', errors='ignore') as file:
         metadata = {
             'container':None,
             'jobID': None,
