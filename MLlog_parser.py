@@ -80,6 +80,7 @@ def process_file(file_path):
         if run_events['run_start'] is None or run_events['run_stop'] is None :
             return None
         run_events['run_time'] = (int(run_events['run_stop']) - int(run_events['run_start']))/1000
+        run_events['is_valid'] = 'true'
         return json.dumps(run_events)
 
 def main(directories):
